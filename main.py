@@ -18,19 +18,17 @@ from db_data.__all_models import User, StudyRecord
 import matplotlib.pyplot as plt
 import pandas as pd
 from pandas.plotting import table
+from config import Config
 
-API_KEY = "6070681835:AAEwkqHsGGct7o8KBXzqxGG_OEOzxy_CsVg"
-group_id = "-1001687206399"
-# group_id = "-1001915266423" #канал
 last_data = None
 
-bot = Bot(token=API_KEY)
+bot = Bot(token=Config.API_KEY)
 storage = MemoryStorage()
 dp = Dispatcher(bot, storage=storage)
 db_session.global_init()
 print('Bot started')
 
-menu_keyb = ReplyKeyboardMarkup(resize_keyboard=True).row(KeyboardButton(text='Учиться')).row(KeyboardButton(text='Таблица'), KeyboardButton(text='Онлайн'))
+menu_keyb = ReplyKeyboardMarkup(resize_keyboard=True).row(KeyboardButton(text='Учиться')).row(KeyboardButton(text='Таблица'), KeyboardButton("Время"), KeyboardButton(text='Онлайн'))
 
 class NewState(State):
     async def set(self, user=None):
@@ -61,6 +59,27 @@ async def start(message:aiogram.types.Message):
     else:
         await message.answer('Работаю только в <a href="https://t.me/egebotbot">личных сообщениях</a>', parse_mode='HTML')
         # await message.answer('Очистил клавиатуру', reply_markup=aiogram.types.ReplyKeyboardRemove())
+
+@dp.message_handler(text="Время")
+@dp.message_handler(commands='time')
+async def get_time_till_math(message:aiogram.types.Message):
+    exams = {
+        'русскому': datetime.datetime(2023, 5, 29, 10, 00),
+        'математике': datetime.datetime(2023, 6, 1, 10, 00),
+        'физике': datetime.datetime(2023, 6, 5, 10, 00),
+        'информатике': datetime.datetime(2023, 6, 19, 10, 00)
+    }
+    text = ''
+    for exam in exams.keys():
+        time_left = exams[exam] - datetime.datetime.now()
+        if time_left.days % 10 == 1 and time_left.days > 20:
+            word = 'день'
+        elif time_left.days > 20 and time_left.days % 10 in [2,3,4]:
+            word = 'дня'
+        else:
+            word = 'дней'
+        text += f'До егэ по {exam} осталось: {time_left.days} {word} {time_left.seconds//3600} часов\n'
+    await message.answer(text)
 
 @dp.message_handler(commands=['rules'])
 async def rules(message:aiogram.types.Message):
@@ -105,8 +124,8 @@ async def process_circle(message: aiogram.types.Message, state: aiogram.dispatch
         await message.answer('Всё окей, продолжай работать. Кружок я переслал твоим друзьям на оценку')
         # checks[message.chat.id] = datetime.datetime.now() + datetime.timedelta(seconds=random.randint(1, 5)) 
         checks[message.chat.id] = datetime.datetime.now() + datetime.timedelta(minutes=random.randint(40, 90))
-        await bot.send_message(group_id, f"Посмотрите на вашего друга {dict(message.from_user).get('first_name', '') + ' ' + dict(message.from_user).get('last_name', '')} за работой")
-        await message.forward(group_id)
+        await bot.send_message(Config.group_id, f"Посмотрите на вашего друга {dict(message.from_user).get('first_name', '') + ' ' + dict(message.from_user).get('last_name', '')} за работой")
+        await message.forward(Config.group_id)
         await state.finish()
 
 @dp.callback_query_handler(lambda call: call.data.startswith('finish '))
@@ -168,6 +187,7 @@ async def send_table(message:aiogram.types.Message):
         # table(ax, df)  # where df is your data frame
         last_data = data
         name = 'table.png'
+        file = open('table.png', 'w').close()
         plt.savefig(name, bbox_inches='tight')
         # dataframe_image.export(df, name, fontsize=20)
         with open('table.png', 'rb') as file:

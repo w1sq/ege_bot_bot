@@ -1,1 +1,4 @@
 correct.py
+config.py
+__pycache__
+users.db
